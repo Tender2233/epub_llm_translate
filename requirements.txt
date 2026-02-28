@@ -1,0 +1,12 @@
+# EPUB Translator Dependencies
+
+# API clients
+anthropic>=0.39.0
+openai>=1.0.0  # For Kimi and other OpenAI-compatible providers
+
+# HTML parsing
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# Optional: Progress bars
+tqdm>=4.66.0

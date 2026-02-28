@@ -1,0 +1,43 @@
+# Example .gitignore for EPUB Translator
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# API keys and secrets
+config.json
+.env
+*.key
+
+# Working directories
+epub_work/
+temp/
+output/
+
+# EPUB files (add your books here to avoid committing them)
+*.epub
+
+# Statistics and logs
+*.stats.json
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
