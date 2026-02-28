@@ -1,16 +1,7 @@
 # EPUB Translator: English to Chinese
 
+自用vide coding的epub电子书翻译器。  
 Automatically translate English EPUB books to Chinese using AI (Kimi or Claude) while preserving formatting, structure, and metadata.
-
-## Features
-
-- ✅ **High-quality literary translation** using Kimi or Claude AI
-- ✅ **Multiple AI providers** - Kimi (cost-effective) or Claude (premium quality)
-- ✅ **Preserves EPUB structure** - formatting, images, CSS, metadata
-- ✅ **Chapter-by-chapter processing** - handles books of any length
-- ✅ **Cost-effective** - ~$0.20-$3 per book with Kimi, $1-8 with Claude
-- ✅ **Simple CLI interface** - easy to use
-- ✅ **Automatic cost tracking** - shows estimated API costs
 
 ## Prerequisites
 
@@ -312,28 +303,4 @@ You can customize behavior in `config.json`:
 }
 ```
 
-## Support
-
-For issues or questions:
-- Check the troubleshooting section above
-- Review API documentation:
-  - Kimi: [platform.moonshot.cn](https://platform.moonshot.cn/docs)
-  - Claude: [docs.anthropic.com](https://docs.anthropic.com)
-- Ensure you're using the latest version of dependencies
-
-## Credits
-
-Built with:
-- [Kimi API](https://www.moonshot.cn/) for cost-effective translation
-- [Anthropic Claude API](https://www.anthropic.com/api) for premium translation
-- [OpenAI Python SDK](https://github.com/openai/openai-python) for Kimi integration
-- [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) for HTML parsing
-- Python's built-in zipfile for EPUB handling
-
-## License
-
-MIT License - feel free to modify and use for your own projects.
-
----
-
-**Happy translating! 📚→🈸**
+**Happy translating!**
