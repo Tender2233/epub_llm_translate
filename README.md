@@ -1,11 +1,13 @@
 # EPUB Translator: English to Chinese
 
 自用 AI 编程工具辅助开发的 epub 电子书翻译器。
-Automatically translate English EPUB books to Chinese using AI (Kimi or Claude) while preserving formatting, structure, and metadata.
+Automatically translate English EPUB books to Chinese using AI (any OpenAI-compatible endpoint or Claude) while preserving formatting, structure, and metadata.
 
 ## ✨ Key Features
 
 - **两阶段流水线**：先用便宜的分析模型通读全书（章节摘要 → 全书概要 → 统一术语表），再并行翻译
+- **通用模型接入**：任意 OpenAI-compatible 网关（OpenAI / Kimi / GLM / Qwen / DeepSeek …）与 Anthropic Messages API（含 Claude-like 网关，支持自定义 base_url）
+- **可选多模态翻译**：用 vision 模型识别并翻译图片内的文字（漫画气泡、图表、地图标注），译文自动写回图片之后；vision 模型可单独配置
 - **术语统一**：人名 / 地名 / 机构名 / 专有术语在预分析阶段自动归纳成术语表，翻译中还会**增量补充**新术语，保证全书译名一致
 - **上下文充分利用**：按块级元素切分章节（默认每请求约 15k 字符），system prompt 注入全书概要 + 本章摘要 + 术语表，上一块译文尾部作为衔接上下文
 - **格式保真**：只翻译 `<body>` 内文本，标签结构与校验（标签缺失自动重试），HTML/CSS/图片原样保留
@@ -17,8 +19,24 @@ Automatically translate English EPUB books to Chinese using AI (Kimi or Claude) 
 
 1. **Python 3.8+**
 2. **API Key** from one of these providers:
-   - **Kimi** (recommended, cost-effective): Sign up at [platform.moonshot.cn](https://platform.moonshot.cn)
-   - **Claude**: Sign up at [console.anthropic.com](https://console.anthropic.com)
+   - **OpenAI 或任意 OpenAI-compatible 网关**（推荐，性价比高）：如 [OpenAI](https://platform.openai.com)、[Kimi](https://platform.moonshot.cn)、GLM、Qwen、DeepSeek 等，填对应 `base_url` 即可
+   - **Claude（Anthropic）**：在 [console.anthropic.com](https://console.anthropic.com) 注册；使用第三方 Claude-like 网关时填写 `base_url`
+
+### Kimi 老用户迁移
+
+`kimi` provider 已重命名为 `openai`（不再保留别名）。在 `config.json` 中改：
+
+```json
+{
+  "api_provider": "openai",
+  "openai": {
+    "api_key": "your-kimi-api-key-here",
+    "base_url": "https://api.moonshot.cn/v1",
+    "model": "moonshot-v1-128k",
+    "analysis_model": "moonshot-v1-8k"
+  }
+}
+```
 
 ## Installation
 
@@ -45,11 +63,12 @@ Then edit `config.json` and add your API key:
 
 ```json
 {
-  "api_provider": "kimi",
-  "kimi": {
-    "api_key": "your-kimi-api-key-here",
-    "model": "moonshot-v1-128k",
-    "analysis_model": "moonshot-v1-8k"
+  "api_provider": "openai",
+  "openai": {
+    "api_key": "your-api-key-here",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o",
+    "analysis_model": "gpt-4o-mini"
   }
 }
 ```
@@ -67,32 +86,44 @@ python translate_epub.py input.epub output_chinese.epub
 ### Full Command Reference
 
 ```bash
-python translate_epub.py [-h] [--config CONFIG] [--provider {kimi,anthropic}]
+python translate_epub.py [-h] [--config CONFIG] [--provider {openai,anthropic}]
                          [--model MODEL] [--analysis-model ANALYSIS_MODEL]
-                         [--api-key API_KEY] [--work-dir WORK_DIR]
-                         [--workers N] [--keep-work-dir]
-                         [--skip-analysis] [--reanalyze]
+                         [--vision-model VISION_MODEL] [--api-key API_KEY]
+                         [--work-dir WORK_DIR] [--workers N] [--keep-work-dir]
+                         [--translate-images] [--skip-analysis] [--reanalyze]
                          input_epub output_epub
 ```
 
 | Option | Description |
 |--------|-------------|
-| `--provider` | `kimi` or `anthropic` (overrides config) |
+| `--provider` | `openai` (any OpenAI-compatible endpoint) or `anthropic` (overrides config) |
 | `--model` | Translation model (overrides config) |
 | `--analysis-model` | Model used for pre-analysis & incremental glossary |
+| `--vision-model` | Vision model for the image pass (overrides config; wins over all config sources) |
 | `--api-key` | API key (overrides config) |
 | `--work-dir` | Working directory (default: `./epub_work`) |
 | `--workers` | Number of parallel chapter workers (default: 3) |
 | `--keep-work-dir` | Keep working directory (contains summary/glossary/checkpoint) |
+| `--translate-images` | Enable the multimodal pass: OCR + translate text inside images |
 | `--skip-analysis` | Skip pre-analysis; reuse saved `summary.json`/`glossary.json` |
 | `--reanalyze` | Force re-running pre-analysis |
+
+### Multimodal Image Translation
+
+在 `config.json` 的 `multimodal` 节启用（`"enabled": true`），或加 `--translate-images` 参数。
+vision 模型解析顺序：`--vision-model` > `multimodal.vision_model` > provider 节 `vision_model` > `analysis_model` > `model`。
+
+- 图片内英文文字（漫画气泡、图表标注、地图地名等）会被识别并译成简体中文
+- 译文默认以 `<p class="llm-img-translation">` 段落追加在图片之后；`output_mode: "alt"` 则写入图片的 `alt` 属性
+- 每张图按内容哈希缓存（`image_checkpoint.json`），同一张图多章引用只识别一次，重跑断点续传
+- 超过 `max_image_mb` 的图片会跳过并警告；SVG、外部 URL、data: URI 图片暂不支持
 
 ### Example Workflow
 
 ```bash
 # 1. Set up config.json with your API key (one time)
 cp config.template.json config.json
-# Edit config.json and add your Kimi or Claude API key
+# Edit config.json and add your OpenAI-compatible or Claude API key
 
 # 2. Translate your book
 python translate_epub.py my_book.epub my_book_chinese.epub
@@ -107,7 +138,7 @@ python translate_epub.py my_book.epub my_book_chinese.epub
 ```
 ============================================================
 EPUB Translation: my_book.epub
-Provider: kimi | Model: moonshot-v1-128k | Analysis model: moonshot-v1-8k
+Provider: openai | Model: gpt-4o | Analysis model: gpt-4o-mini
 Workers: 3
 ============================================================
 
@@ -149,12 +180,14 @@ Duration: 6.2 minutes
 4. **翻译 (Translation)**: 章节并行、章内分块顺序；system prompt 注入全书概要 + 本章摘要 + 术语表；user 消息带上一块译文尾部作为衔接
 5. **校验 (Validation)**: 逐块校验输出标签结构与输入一致，不一致自动带警告重试
 6. **增量术语 (Incremental glossary)**: 每章译完用分析模型抽取新术语，线程安全合并到术语表，后续分块生效
-7. **重建 (Rebuild)**: 字符串手术只替换 `<body>` 内层，更新语言元数据，重新打包 EPUB；chunk 粒度 checkpoint 支持断点续译
+7. **多模态 (可选)**: vision 模型识别图片内英文文字并翻译，译文写回图片之后（`--translate-images`）
+8. **重建 (Rebuild)**: 字符串手术只替换 `<body>` 内层，更新语言元数据，重新打包 EPUB；chunk 粒度 checkpoint 支持断点续译
 
 工作目录（`--keep-work-dir` 可保留）包含：
 - `summary.json` — 全书概要 + 章节摘要
 - `glossary.json` — 统一术语表
-- `.translation_checkpoint.json` — 断点（文件 + chunk 粒度）
+- `.translation_checkpoint.json` — 正文断点（文件 + chunk 粒度）
+- `image_checkpoint.json` — 图片识别断点（图片哈希 + 注入标记）
 - `translated/` — 各分块译文
 
 ## Configuration Reference
@@ -163,9 +196,16 @@ Duration: 6.2 minutes
 
 | Section | Key | Meaning |
 |---------|-----|---------|
-| `kimi` / `anthropic` | `model` | 翻译模型 |
+| `openai` / `anthropic` | `base_url` | API 端点（openai-compat 与 Claude-like 网关均可自定义；留空用官方端点） |
+| | `model` | 翻译模型 |
 | | `analysis_model` | 预分析模型（可用便宜的） |
+| | `vision_model` | 多模态（图片识别）模型，留空自动回退 |
 | | `temperature` / `max_tokens` | 每请求采样参数 |
+| `multimodal` | `enabled` | 是否启用图片翻译（等价 `--translate-images`） |
+| | `vision_model` | 全局 vision 模型（覆盖 provider 节的 `vision_model`） |
+| | `output_mode` | 译文写回方式：`append`（图片后追加段落）/ `alt`（写入 alt 属性） |
+| | `max_image_mb` | 超过该大小的图片跳过 |
+| | `delay_between_requests` / `temperature` / `max_tokens` | 图片请求参数 |
 | `translation` | `max_chunk_chars` | 分块目标大小（英文字符，约 ÷4 ≈ token 数） |
 | | `workers` | 并行翻译章节数 |
 | | `glossary_max_terms_in_prompt` | 注入 prompt 的术语条数（按词频取 top N） |
@@ -181,20 +221,20 @@ Duration: 6.2 minutes
 
 ## Cost Estimation
 
-预分析阶段使用便宜的 `analysis_model`（如 `moonshot-v1-8k` / `claude-haiku`），成本通常不到翻译阶段的 10%。
+预分析阶段使用便宜的 `analysis_model`（如 `gpt-4o-mini` / `claude-haiku`），成本通常不到翻译阶段的 10%。
 
 Approximate costs per 80,000-word novel:
 
 | Provider | Model | Total |
 |----------|-------|-------|
-| **Kimi** | moonshot-v1-128k | **~¥0.20 (~$0.03)** |
+| **OpenAI-compatible**（如 Kimi: `base_url=https://api.moonshot.cn/v1`） | 视网关定价 | **~¥0.20 (~$0.03) 起** |
 | **Claude** | Sonnet 4 | **~$3.10** |
 | **Claude** | Opus 4 | **~$15.30** |
 
 ## Troubleshooting
 
 ### "API key required" error
-Set the API key in `config.json` for your chosen provider, or use the `KIMI_API_KEY` / `ANTHROPIC_API_KEY` env vars.
+Set the API key in `config.json` for your chosen provider, or use the `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` env vars. `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` env vars can override endpoints.
 
 ### "No HTML chapter files found" error
 The EPUB structure may be non-standard. Try `--keep-work-dir` to inspect the extracted files.

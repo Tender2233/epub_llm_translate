@@ -2,7 +2,7 @@
 
 # API clients
 anthropic>=0.39.0
-openai>=1.0.0  # For Kimi and other OpenAI-compatible providers
+openai>=1.0.0  # OpenAI and all OpenAI-compatible providers (Kimi/GLM/Qwen/DeepSeek ...)
 
 # HTML parsing
 beautifulsoup4>=4.12.0

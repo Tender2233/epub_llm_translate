@@ -201,3 +201,23 @@ def build_new_terms_prompt(chapter_text: str, existing_keys: List[str]) -> Tuple
 严格按如下 JSON 格式输出；若没有新术语则输出空数组：
 {{"terms": [{{"en": "英文原文", "zh": "中文译名", "category": "person", "frequency": 3}}]}}"""
     return system, user
+
+
+# ---------------------------------------------------------------------------
+# Multimodal prompts (image OCR + translation)
+# ---------------------------------------------------------------------------
+
+def build_image_ocr_prompt(target_language: str = "简体中文") -> Tuple[str, str]:
+    """Ask the vision model to extract and translate all English text inside an image."""
+    system = (
+        "你是图像文字识别与翻译助手。仔细观察图片，找出图片中出现的所有英文文字"
+        "（包括标题、标注、对话气泡、图表文字、地图地名等），并翻译成简体中文。\n"
+        "要求：\n"
+        "1. 按图中文字出现顺序（大致从上到下、从左到右）逐条输出\n"
+        "2. 忠实原意，不解释、不评论；专有名词按通用译法处理\n"
+        "3. 只输出 JSON，不要输出任何其他文字、解释或代码围栏\n"
+        "4. 若图中没有任何文字，输出空数组"
+    )
+    user = f"""请把图片中的英文文字翻译成{target_language}，严格按如下 JSON 格式输出：
+{{"items": [{{"text": "图片中的英文原文", "translation": "简体中文译文"}}]}}"""
+    return system, user

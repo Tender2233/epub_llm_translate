@@ -7,25 +7,42 @@ from pathlib import Path
 from typing import Dict
 
 DEFAULT_CONFIG: Dict = {
-    "api_provider": "kimi",
+    "api_provider": "openai",
     "max_retries": 5,
     "retry_base_delay": 2,
 
-    "kimi": {
+    # Any OpenAI-compatible endpoint (OpenAI, Kimi, GLM, Qwen, DeepSeek, ...).
+    # Kimi migration: set base_url to https://api.moonshot.cn/v1 and pick moonshot models.
+    "openai": {
         "api_key": "",
-        "base_url": "https://api.moonshot.cn/v1",
-        "model": "moonshot-v1-128k",
-        "analysis_model": "moonshot-v1-8k",
-        "temperature": 1.0,   # Kimi API requires temperature=1 for moonshot-v1 models
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o",
+        "analysis_model": "gpt-4o-mini",
+        "vision_model": "",           # separate multimodal model; empty = auto fallback
+        "temperature": 0.3,
         "max_tokens": 16384,
     },
 
+    # Anthropic Messages API, including Claude-compatible gateways via base_url.
     "anthropic": {
         "api_key": "",
+        "base_url": "",               # empty = official Anthropic endpoint
         "model": "claude-sonnet-4-6",
         "analysis_model": "claude-haiku-4-5",
+        "vision_model": "",
         "temperature": 0.3,
         "max_tokens": 16384,
+    },
+
+    # Optional multimodal pass: OCR + translate text inside images.
+    "multimodal": {
+        "enabled": False,              # True, or use --translate-images
+        "vision_model": "",           # global override (beats provider.vision_model)
+        "output_mode": "append",      # append | alt
+        "max_image_mb": 2,            # images larger than this are skipped
+        "delay_between_requests": 1.0,
+        "temperature": 0.2,
+        "max_tokens": 4096,
     },
 
     "translation": {

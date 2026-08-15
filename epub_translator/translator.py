@@ -46,14 +46,15 @@ def estimate_cost(provider: str, model: str, input_tokens: int, output_tokens: i
         else:
             input_price, output_price = 3.0, 15.0
     else:
-        if "128k" in name:
-            input_price = output_price = 60.0
-        elif "32k" in name:
-            input_price = output_price = 24.0
+        # OpenAI-compatible endpoints; prices vary by gateway, so this is a rough guide.
+        if "mini" in name or "flash" in name:
+            input_price, output_price = 0.15, 0.60
+        elif name.startswith("o1") or name.startswith("o3") or name.startswith("o4"):
+            input_price, output_price = 2.0, 8.0
+        elif "gpt-5" in name or "k2" in name:
+            input_price, output_price = 1.25, 10.0
         else:
-            input_price = output_price = 12.0
-        input_price /= 7.2  # approximate CNY -> USD
-        output_price /= 7.2
+            input_price, output_price = 2.5, 10.0
     return input_tokens / 1e6 * input_price + output_tokens / 1e6 * output_price
 
 

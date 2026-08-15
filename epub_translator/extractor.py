@@ -2,6 +2,7 @@
 
 import re
 import shutil
+import urllib.parse
 import zipfile
 from collections import Counter
 from dataclasses import dataclass
@@ -12,6 +13,15 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 
 HTML_MEDIA_TYPES = {"application/xhtml+xml", "text/html", "application/html+xml", "application/xml"}
 HTML_EXTENSIONS = (".html", ".xhtml", ".htm")
+
+# Image extensions supported by the multimodal pass (SVG intentionally excluded).
+EXT_TO_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
 
 
 @dataclass
@@ -237,6 +247,34 @@ def validate_fragment(original: str, translated: str) -> Tuple[bool, str]:
 
 
 # ---------------------------------------------------------------------------
+# Image references (multimodal pass)
+# ---------------------------------------------------------------------------
+
+def collect_image_refs(html: str) -> List[str]:
+    """Return deduplicated relative <img src> values (data:/http(s) URLs skipped)."""
+    soup = BeautifulSoup(html, "lxml")
+    refs: List[str] = []
+    seen = set()
+    for tag in soup.find_all("img"):
+        src = (tag.get("src") or "").strip()
+        if not src or src.lower().startswith(("data:", "http:", "https:", "//")):
+            continue
+        src = urllib.parse.unquote(src).split("#")[0].strip()
+        if not src:
+            continue
+        key = src.lower()
+        if key not in seen:
+            seen.add(key)
+            refs.append(src)
+    return refs
+
+
+def image_media_type(path: Path) -> Optional[str]:
+    """Map an image file path to its MIME type (None if unsupported)."""
+    return EXT_TO_MIME.get(path.suffix.lower())
+
+
+# ---------------------------------------------------------------------------
 # EPUB container handling
 # ---------------------------------------------------------------------------
 
@@ -383,6 +421,28 @@ class EPubExtractor:
     def _chapter_title(html: str) -> str:
         match = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
         return re.sub(r"\s+", " ", match.group(1)).strip() if match else ""
+
+    def chapter_images(self, chapter: ChapterUnit) -> List[Path]:
+        """Resolve <img> references in a chapter to existing image files inside the EPUB."""
+        try:
+            html = chapter.path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return []
+        images: List[Path] = []
+        seen = set()
+        for src in collect_image_refs(html):
+            path = (chapter.path.parent / src).resolve()
+            try:
+                path.relative_to(self.extract_path)
+            except ValueError:
+                continue  # points outside the extracted book
+            if not path.is_file() or image_media_type(path) is None:
+                continue
+            if path in seen:
+                continue
+            seen.add(path)
+            images.append(path)
+        return images
 
 
 def update_metadata(extract_path: Path, target_lang: str = "zh"):

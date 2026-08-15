@@ -2,25 +2,38 @@
 # Copy this to config.json and customize as needed
 
 {
-  "api_provider": "kimi",
+  "api_provider": "openai",
   "max_retries": 5,
   "retry_base_delay": 2,
 
-  "kimi": {
+  "openai": {
     "api_key": "",
-    "base_url": "https://api.moonshot.cn/v1",
-    "model": "moonshot-v1-128k",
-    "analysis_model": "moonshot-v1-8k",
-    "temperature": 1.0,
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o",
+    "analysis_model": "gpt-4o-mini",
+    "vision_model": "",
+    "temperature": 0.3,
     "max_tokens": 16384
   },
 
   "anthropic": {
     "api_key": "",
+    "base_url": "",
     "model": "claude-sonnet-4-6",
     "analysis_model": "claude-haiku-4-5",
+    "vision_model": "",
     "temperature": 0.3,
     "max_tokens": 16384
+  },
+
+  "multimodal": {
+    "enabled": false,
+    "vision_model": "",
+    "output_mode": "append",
+    "max_image_mb": 2,
+    "delay_between_requests": 1.0,
+    "temperature": 0.2,
+    "max_tokens": 4096
   },
 
   "translation": {

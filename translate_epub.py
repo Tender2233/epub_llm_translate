@@ -15,6 +15,7 @@ import shutil
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Dict
 
 from epub_translator.config import load_config
 from epub_translator.extractor import EPubExtractor, rebuild_epub, update_metadata
@@ -22,22 +23,29 @@ from epub_translator.glossary import Glossary
 from epub_translator.llm_client import LLMClient
 from epub_translator.summarizer import BookAnalyzer
 from epub_translator.translator import TranslationPipeline, estimate_cost
+from epub_translator.vision import ImageTranslator
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Translate English EPUB books to Chinese using LLM APIs (Kimi / Anthropic)."
+        description="Translate English EPUB books to Chinese using LLM APIs (OpenAI-compatible / Anthropic)."
     )
     parser.add_argument("input_epub", help="Path to input English EPUB file")
     parser.add_argument("output_epub", help="Path for output translated EPUB file")
     parser.add_argument("--config", default="config.json", help="Path to config file (default: config.json)")
-    parser.add_argument("--provider", choices=["kimi", "anthropic"], help="API provider (overrides config)")
+    parser.add_argument("--provider", choices=["openai", "anthropic"], help="API provider (overrides config)")
     parser.add_argument("--model", help="Translation model (overrides config)")
     parser.add_argument("--analysis-model", help="Model used for pre-analysis/glossary (overrides config)")
+    parser.add_argument("--vision-model", help="Vision model used for the image pass (overrides config)")
     parser.add_argument("--api-key", help="API key (overrides config)")
     parser.add_argument("--work-dir", help="Working directory for extraction (default from config)")
     parser.add_argument("--workers", type=int, help="Number of parallel translation workers")
     parser.add_argument("--keep-work-dir", action="store_true", help="Keep working directory after completion")
+    parser.add_argument(
+        "--translate-images",
+        action="store_true",
+        help="Enable the multimodal pass: OCR and translate text inside images",
+    )
     parser.add_argument(
         "--skip-analysis",
         action="store_true",
@@ -55,7 +63,7 @@ def main():
     args = parse_args()
     config = load_config(args.config)
 
-    provider = args.provider or config.get("api_provider", "kimi")
+    provider = args.provider or config.get("api_provider", "openai")
     tcfg = config.get("translation", {})
     pcfg = config.get("processing", {})
     precfg = config.get("pre_analysis", {})
@@ -133,7 +141,17 @@ def main():
     pipeline = TranslationPipeline(llm, config, extractor, glossary, summary, work_path, checkpoint_file)
     result = pipeline.translate(chapters, workers)
 
-    # Step 4: Update metadata and rebuild the EPUB
+    # Step 4 (optional): Multimodal pass — OCR + translate text inside images
+    vision_result: Dict = {}
+    if args.translate_images or config.get("multimodal", {}).get("enabled"):
+        if args.vision_model:
+            config.setdefault("multimodal", {})["vision_model"] = args.vision_model
+            llm.vision_model = args.vision_model  # CLI wins over every config source
+        print()
+        print(f"Running image translation with vision model: {llm.vision_model} ...")
+        vision_result = ImageTranslator(llm, config, work_path, extractor).translate(chapters)
+
+    # Step 5: Update metadata and rebuild the EPUB
     print()
     update_metadata(work_path)
     print()
@@ -144,7 +162,10 @@ def main():
     analysis_cost = estimate_cost(
         provider, llm.analysis_model, llm.analysis_input_tokens, llm.analysis_output_tokens
     )
-    total_cost = translation_cost + analysis_cost
+    vision_cost = estimate_cost(
+        provider, llm.vision_model, llm.vision_input_tokens, llm.vision_output_tokens
+    )
+    total_cost = translation_cost + analysis_cost + vision_cost
 
     stats = {
         "input_file": args.input_epub,
@@ -163,8 +184,15 @@ def main():
         "translation_output_tokens": llm.total_output_tokens,
         "analysis_input_tokens": llm.analysis_input_tokens,
         "analysis_output_tokens": llm.analysis_output_tokens,
+        "vision_model": llm.vision_model if vision_result else None,
+        "vision_input_tokens": llm.vision_input_tokens,
+        "vision_output_tokens": llm.vision_output_tokens,
+        "images_translated": vision_result.get("images_translated", 0) if vision_result else 0,
+        "images_skipped": vision_result.get("images_skipped", 0) if vision_result else 0,
+        "chapters_updated_by_vision": vision_result.get("chapters_updated", 0) if vision_result else 0,
         "estimated_translation_cost_usd": round(translation_cost, 2),
         "estimated_analysis_cost_usd": round(analysis_cost, 2),
+        "estimated_vision_cost_usd": round(vision_cost, 2),
         "estimated_total_cost_usd": round(total_cost, 2),
         "duration_seconds": round(duration, 1),
     }
@@ -210,121 +238,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-        
 
-def main():
-    """Main CLI interface."""
-    parser = argparse.ArgumentParser(
-        description="Translate English EPUB books to Chinese using AI (Kimi or Claude)",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Translate using config.json settings (default: Kimi)
-  python translate_epub.py input.epub output_chinese.epub
-  
-  # Use Anthropic Claude instead
-  python translate_epub.py input.epub output.epub --provider anthropic
-  
-  # Override model from config
-  python translate_epub.py input.epub output.epub --model moonshot-v1-128k
-  
-  # Keep working directory for inspection
-  python translate_epub.py input.epub output.epub --keep-work-dir
-        """
-    )
-    
-    parser.add_argument(
-        "input_epub",
-        help="Path to input English EPUB file"
-    )
-    
-    parser.add_argument(
-        "output_epub",
-        help="Path for output Chinese EPUB file"
-    )
-    
-    parser.add_argument(
-        "--config",
-        default="config.json",
-        help="Path to config file (default: config.json)"
-    )
-    
-    parser.add_argument(
-        "--provider",
-        choices=["kimi", "anthropic"],
-        help="API provider to use (overrides config file)"
-    )
-    
-    parser.add_argument(
-        "--model",
-        help="Model to use (overrides config file)"
-    )
-    
-    parser.add_argument(
-        "--api-key",
-        help="API key (overrides config file)"
-    )
-    
-    parser.add_argument(
-        "--work-dir",
-        default="./epub_work",
-        help="Working directory for extraction (default: ./epub_work)"
-    )
-    
-    parser.add_argument(
-        "--keep-work-dir",
-        action="store_true",
-        help="Keep working directory after completion"
-    )
-
-    parser.add_argument(
-        "--workers",
-        type=int,
-        default=3,
-        help="Number of parallel translation workers (default: 3)"
-    )
-
-    args = parser.parse_args()
-    
-    # Validate input file
-    if not Path(args.input_epub).exists():
-        print(f"Error: Input file not found: {args.input_epub}")
-        sys.exit(1)
-    
-    # Load config
-    config = load_config(args.config)
-    
-    # Create translator and run
-    try:
-        translator = EPUBTranslator(
-            config=config,
-            api_key=args.api_key,
-            model=args.model,
-            provider=args.provider
-        )
-        
-        stats = translator.translate_epub(
-            input_epub=args.input_epub,
-            output_epub=args.output_epub,
-            work_dir=args.work_dir,
-            keep_work_dir=args.keep_work_dir,
-            workers=args.workers
-        )
-        
-        # Save statistics
-        stats_file = Path(args.output_epub).with_suffix(".stats.json")
-        with open(stats_file, 'w', encoding='utf-8') as f:
-            json.dump(stats, f, indent=2, ensure_ascii=False)
-        
-        print(f"Statistics saved to: {stats_file}")
-        
-    except KeyboardInterrupt:
-        print("\n\nTranslation interrupted by user.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n✗ Fatal error: {e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

@@ -37,15 +37,17 @@ if [ ! -f "config.json" ]; then
     echo "✓ Created config.json"
     echo ""
     echo "📝 Please edit config.json and add your API key:"
-    echo "   - For Kimi: Get API key from https://platform.moonshot.cn"
+    echo "   - For OpenAI or any OpenAI-compatible gateway: set base_url accordingly"
+    echo "     (e.g. Kimi: https://api.moonshot.cn/v1 | GLM / Qwen / DeepSeek ...)"
     echo "   - For Claude: Get API key from https://console.anthropic.com"
     echo ""
-    echo "Example config for Kimi (recommended):"
+    echo "Example config for OpenAI:"
     echo '  {'
-    echo '    "api_provider": "kimi",'
-    echo '    "kimi": {'
-    echo '      "api_key": "your-kimi-api-key-here",'
-    echo '      "model": "moonshot-v1-128k"'
+    echo '    "api_provider": "openai",'
+    echo '    "openai": {'
+    echo '      "api_key": "your-api-key-here",'
+    echo '      "base_url": "https://api.openai.com/v1",'
+    echo '      "model": "gpt-4o"'
     echo '    }'
     echo '  }'
     echo ""
