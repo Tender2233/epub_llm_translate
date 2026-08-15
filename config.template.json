@@ -3,36 +3,57 @@
 
 {
   "api_provider": "kimi",
-  
+  "max_retries": 5,
+  "retry_base_delay": 2,
+
   "kimi": {
     "api_key": "",
     "base_url": "https://api.moonshot.cn/v1",
-    "model": "moonshot-v1-128k"
+    "model": "moonshot-v1-128k",
+    "analysis_model": "moonshot-v1-8k",
+    "temperature": 1.0,
+    "max_tokens": 16384
   },
-  
+
   "anthropic": {
     "api_key": "",
-    "model": "claude-sonnet-4-6"
+    "model": "claude-sonnet-4-6",
+    "analysis_model": "claude-haiku-4-5",
+    "temperature": 0.3,
+    "max_tokens": 16384
   },
-  
+
   "translation": {
     "target_language": "zh",
     "target_language_name": "Simplified Chinese (简体中文)",
-    "temperature": 0.3,
-    "max_tokens": 16384,
-    "delay_between_chapters": 1.0
+    "max_chunk_chars": 15000,
+    "min_chunk_chars": 200,
+    "skip_files_shorter_than": 50,
+    "delay_between_requests": 1.0,
+    "workers": 3,
+    "glossary_max_terms_in_prompt": 150
   },
-  
+
   "prompt_customization": {
     "translation_style": "literary",
     "formality": "moderate",
     "preserve_names": true,
     "cultural_adaptation": true
   },
-  
+
+  "pre_analysis": {
+    "enabled": true,
+    "chapter_sample_chars": 4000,
+    "chapters_per_summary_batch": 4,
+    "glossary_max_terms_total": 500,
+    "incremental_glossary": true,
+    "temperature": 0.2,
+    "max_tokens": 4096
+  },
+
   "processing": {
-    "skip_files_shorter_than": 50,
     "work_directory": "./epub_work",
-    "keep_work_directory": false
+    "keep_work_directory": false,
+    "include_outside_spine": false
   }
 }
